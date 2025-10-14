@@ -303,7 +303,7 @@ Convert a PDF to PDF/A format for archiving:
 ```csharp
 var result = await convertApi.ConvertAsync("pdf", "pdfa",
     new ConvertApiFileParam(@"C:\files\document.pdf"),
-    new ConvertApiParam("PdfaVersion", "pdfa2"));
+    new ConvertApiParam("PdfaVersion", "pdfa2b"));
 await result.SaveFilesAsync(@"C:\output\");
 ```
 

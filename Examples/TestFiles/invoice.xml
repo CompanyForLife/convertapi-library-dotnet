@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Invoice xmlns="urn:example:invoice" currency="EUR" version="1.0">
+  <Header>
+    <InvoiceNumber>INV-2025-00123</InvoiceNumber>
+    <IssueDate>2025-10-13</IssueDate>
+    <DueDate>2025-10-27</DueDate>
+    <PurchaseOrder>PO-8842</PurchaseOrder>
+  </Header>
+  <Supplier>
+    <Name>Acme UAB</Name>
+    <VATNumber>LT123456789</VATNumber>
+    <RegistrationNumber>305000999</RegistrationNumber>
+    <Email>billing@acme.example</Email>
+    <Phone>+37060000000</Phone>
+    <Address>
+      <Street>Gedimino pr. 1</Street>
+      <City>Vilnius</City>
+      <PostalCode>01103</PostalCode>
+      <Country>LT</Country>
+    </Address>
+  </Supplier>
+  <Customer>
+    <Name>Contoso Ltd.</Name>
+    <VATNumber>GB987654321</VATNumber>
+    <RegistrationNumber>09123456</RegistrationNumber>
+    <Email>ap@contoso.example</Email>
+    <Phone>+44 20 7946 0000</Phone>
+    <Address>
+      <Street>1 King Street</Street>
+      <City>London</City>
+      <PostalCode>EC1A 1AA</PostalCode>
+      <Country>GB</Country>
+    </Address>
+  </Customer>
+  <Items>
+    <Item>
+      <ID>SKU-1001</ID>
+      <Description>Premium Widget</Description>
+      <Quantity>3</Quantity>
+      <UnitPrice currency="EUR">49.99</UnitPrice>
+      <LineTotal currency="EUR">149.97</LineTotal>
+    </Item>
+    <Item>
+      <ID>SKU-2042</ID>
+      <Description>Enterprise Gadget</Description>
+      <Quantity>2</Quantity>
+      <UnitPrice currency="EUR">120.00</UnitPrice>
+      <LineTotal currency="EUR">240.00</LineTotal>
+    </Item>
+  </Items>
+  <Summary>
+    <SubTotal currency="EUR">389.97</SubTotal>
+    <Taxes>
+      <Tax type="VAT" rate="21.00">81.89</Tax>
+    </Taxes>
+    <Total currency="EUR">471.86</Total>
+  </Summary>
+  <PaymentTerms>
+    <Method>BankTransfer</Method>
+    <IBAN>LT121000011101001000</IBAN>
+    <SWIFT>AGBLLT2X</SWIFT>
+    <Reference>INV-2025-00123</Reference>
+  </PaymentTerms>
+  <Notes>Thank you for your business! Late payments may incur a 1.5% monthly fee.</Notes>
+</Invoice>

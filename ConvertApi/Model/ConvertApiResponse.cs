@@ -7,6 +7,6 @@ namespace ConvertApiDotNet.Model
     {
         public int ConversionCost { get; set; }
         [JsonProperty(PropertyName = "Files")]
-        public ConvertApiFiles[] Files { get; set; }
+        public ConvertApiFile[] Files { get; set; }
     }
 }

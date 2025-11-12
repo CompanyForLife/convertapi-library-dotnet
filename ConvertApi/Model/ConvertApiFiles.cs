@@ -2,7 +2,7 @@
 
 namespace ConvertApiDotNet.Model
 {
-    public class ConvertApiFiles
+    public class ConvertApiFile
     {
         public string FileId { get; set; }        
         public string FileName { get; set; }        

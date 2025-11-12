@@ -72,7 +72,7 @@ namespace ConvertApiDotNet
 
     public class ConvertApiFileParam : ConvertApiBaseParam
     {
-        private Task<ConvertApiFiles> Tasks { get; set; }
+        private Task<ConvertApiFile> Tasks { get; set; }
 
         /// <summary>
         /// Convert remote file.
@@ -88,22 +88,26 @@ namespace ConvertApiDotNet
         }
 
         /// <summary>
-        /// Convert local file or pass File ID.
+        /// Convert local file.
         /// </summary>
-        /// <param name="path">Full path to local file or File ID.</param>
+        /// <param name="path">Path to a local file.</param>
         public ConvertApiFileParam(string path) : this("file", path)
         {
         }
 
         public ConvertApiFileParam(string name, string path) : base(name)
         {
-            //If file then load as stream if not then assume that it is file id
-            if (File.Exists(path))
-            {
-                Tasks = Upload(new FileInfo(path));
-            }
-            else
-                Value = new[] { path };
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException(
+                    "Path must be a non-empty path to an existing local file. To use a FileId, pass new ConvertApiParam(\"FileId\", fileId).",
+                    nameof(path));
+
+            if (!File.Exists(path))
+                throw new FileNotFoundException(
+                    $"File not found at path '{path}'. To use a FileId, pass new ConvertApiParam(\"FileId\", fileId).",
+                    path);
+
+            Tasks = Upload(new FileInfo(path));
         }
 
         /// <summary>
@@ -133,11 +137,11 @@ namespace ConvertApiDotNet
             Tasks = Upload(fileStream, fileName);
         }
 
-        public ConvertApiFileParam(ConvertApiFiles processedFile) : this("File", processedFile)
+        public ConvertApiFileParam(ConvertApiFile processedFile) : this("File", processedFile)
         {
         }
 
-        public ConvertApiFileParam(string name, ConvertApiFiles processedFile) : base(name, processedFile.Url)
+        public ConvertApiFileParam(string name, ConvertApiFile processedFile) : base(name, processedFile.Url)
         {
         }
 
@@ -150,7 +154,7 @@ namespace ConvertApiDotNet
             Value = response.Files.Select(s => s.Url.ToString()).ToArray();
         }
 
-        private static async Task<ConvertApiFiles> Upload(FileInfo file)
+        private static async Task<ConvertApiFile> Upload(FileInfo file)
         {
             using (var fileStream = file.OpenRead())
             {
@@ -158,7 +162,7 @@ namespace ConvertApiDotNet
             }
         }
 
-        private static async Task<ConvertApiFiles> Upload(Stream fileStream, string fileName)
+        private static async Task<ConvertApiFile> Upload(Stream fileStream, string fileName)
         {
             HttpResponseMessage responseMessage;
             using (var content = new StreamContent(fileStream))
@@ -183,10 +187,10 @@ namespace ConvertApiDotNet
                 throw new ConvertApiException(responseMessage.StatusCode, $"Unable to upload file. {responseMessage.ReasonPhrase}", result);
             }
 
-            return JsonConvert.DeserializeObject<ConvertApiFiles>(result);
+            return JsonConvert.DeserializeObject<ConvertApiFile>(result);
         }
 
-        private static async Task<ConvertApiFiles> Upload(Uri remoteFileUrl)
+        private static async Task<ConvertApiFile> Upload(Uri remoteFileUrl)
         {
             var url = new UriBuilder(ConvertApi.ApiBaseUri)
             {
@@ -201,12 +205,22 @@ namespace ConvertApiDotNet
                 throw new ConvertApiException(responseMessage.StatusCode, $"Unable to upload file. {responseMessage.ReasonPhrase}", result);
             }
 
-            return JsonConvert.DeserializeObject<ConvertApiFiles>(result);
+            return JsonConvert.DeserializeObject<ConvertApiFile>(result);
         }
 
-        public async Task<ConvertApiFiles> GetValueAsync()
+        /// <summary>
+        /// Gets the uploaded file information if this instance initiated an upload.
+        /// Returns null when this parameter was constructed from existing values (e.g., URL or response).
+        /// </summary>
+        public async Task<ConvertApiFile> GetUploadedFileAsync()
         {
             return Tasks == null ? null : await Tasks;
+        }
+
+        [Obsolete("Use GetUploadedFileAsync() instead.")]
+        public async Task<ConvertApiFile> GetValueAsync()
+        {
+            return await GetUploadedFileAsync();
         }
     }
 }

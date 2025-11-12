@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Threading.Tasks;
+using System.Linq;
 using ConvertApiDotNet.Constants;
 using ConvertApiDotNet.Model;
 
@@ -33,7 +34,7 @@ namespace ConvertApiDotNet
             using (var readFile = await AsStreamAsync(url))
             {
                 using (var fileStream = fileInfo.OpenWrite())
-                    readFile.CopyTo(fileStream);
+                    await readFile.CopyToAsync(fileStream);
             }
 
             return fileInfo;
@@ -50,17 +51,17 @@ namespace ConvertApiDotNet
             return await response.Files.SaveFilesAsync(outputDirectory);
         }
 
-        public static async Task<Stream> FileStreamAsync(this ConvertApiFiles processedFile)
+        public static async Task<Stream> FileStreamAsync(this ConvertApiFile processedFile)
         {
             return await AsStreamAsync(processedFile.Url);
         }
 
-        public static async Task<FileInfo> SaveFileAsync(this ConvertApiFiles processedFile, string fileName)
+        public static async Task<FileInfo> SaveFileAsync(this ConvertApiFile processedFile, string fileName)
         {
             return await SaveFileAsync(processedFile.Url, fileName);
         }
 
-        public static async Task<List<FileInfo>> SaveFilesAsync(this IEnumerable<ConvertApiFiles> processedFile, string outputDirectory)
+        public static async Task<List<FileInfo>> SaveFilesAsync(this IEnumerable<ConvertApiFile> processedFile, string outputDirectory)
         {
             var list = new List<FileInfo>();
             foreach (var file in processedFile)
@@ -76,7 +77,7 @@ namespace ConvertApiDotNet
         /// </summary>
         /// <param name="processedFile">Files to delete.</param>
         /// <returns>Returns deleted files count.</returns>
-        public static async Task<int> DeleteFilesAsync(this IEnumerable<ConvertApiFiles> processedFile)
+        public static async Task<int> DeleteFilesAsync(this IEnumerable<ConvertApiFile> processedFile)
         {
             var httpClient = ConvertApi.GetClient().Client;
             var count = 0;
@@ -88,6 +89,83 @@ namespace ConvertApiDotNet
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// Delete all files related to a conversion: output files from the response and any uploaded input files
+        /// used by the provided parameters. If not deleted explicitly, files are automatically removed after 3 hours.
+        /// </summary>
+        /// <param name="response">Conversion response containing destination files.</param>
+        /// <param name="parameters">Parameters used for the conversion (to detect uploaded input files).</param>
+        /// <returns>Total count of successfully deleted files.</returns>
+        public static async Task<int> DeleteFilesAsync(this ConvertApiResponse response, IEnumerable<ConvertApiBaseParam> parameters)
+        {
+            var allFiles = new List<ConvertApiFile>();
+
+            if (response?.Files != null && response.Files.Length > 0)
+                allFiles.AddRange(response.Files);
+
+            if (parameters != null)
+            {
+                foreach (var p in parameters)
+                {
+                    if (p is ConvertApiFileParam fileParam)
+                    {
+                        // Only parameters that initiated an upload have an uploaded file to delete
+                        var uploaded = await fileParam.GetUploadedFileAsync();
+                        if (uploaded != null)
+                            allFiles.Add(uploaded);
+                    }
+                }
+            }
+
+            // Deduplicate by FileId when available, otherwise by absolute URL
+            var unique = allFiles
+                .Where(f => f != null && (f.Url != null || !string.IsNullOrWhiteSpace(f.FileId)))
+                .GroupBy(f => !string.IsNullOrWhiteSpace(f.FileId) ? f.FileId : f.Url.ToString(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            return await DeleteFilesAsync((IEnumerable<ConvertApiFile>)unique);
+        }
+
+        /// <summary>
+        /// Delete all files related to a conversion: output files from the response and any uploaded input files
+        /// used by the provided parameters. If not deleted explicitly, files are automatically removed after 3 hours.
+        /// </summary>
+        /// <param name="response">Conversion response containing destination files.</param>
+        /// <param name="parameters">Parameters used for the conversion (to detect uploaded input files).</param>
+        /// <returns>Total count of successfully deleted files.</returns>
+        public static Task<int> DeleteFilesAsync(this ConvertApiResponse response, params ConvertApiBaseParam[] parameters)
+        {
+            return DeleteFilesAsync(response, parameters?.AsEnumerable());
+        }
+
+        /// <summary>
+        /// Delete all files related to a conversion without needing to pass parameters.
+        /// This removes destination files from the response and any input files uploaded
+        /// during the same conversion call (tracked on the response instance).
+        /// If not deleted explicitly, files are automatically removed after 3 hours.
+        /// </summary>
+        /// <param name="response">Conversion response that holds destination files and tracked uploaded inputs.</param>
+        /// <returns>Total count of successfully deleted files.</returns>
+        public static async Task<int> DeleteFilesAsync(this ConvertApiResponse response)
+        {
+            var allFiles = new List<ConvertApiFile>();
+
+            if (response?.Files != null && response.Files.Length > 0)
+                allFiles.AddRange(response.Files);
+
+            if (response?.UploadedInputFiles != null && response.UploadedInputFiles.Count > 0)
+                allFiles.AddRange(response.UploadedInputFiles);
+
+            var unique = allFiles
+                .Where(f => f != null && (f.Url != null || !string.IsNullOrWhiteSpace(f.FileId)))
+                .GroupBy(f => !string.IsNullOrWhiteSpace(f.FileId) ? f.FileId : f.Url.ToString(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            return await DeleteFilesAsync((IEnumerable<ConvertApiFile>)unique);
         }
 
         #endregion

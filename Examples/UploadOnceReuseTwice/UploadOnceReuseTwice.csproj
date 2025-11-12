@@ -11,10 +11,4 @@
     <ProjectReference Include="..\..\ConvertApi\ConvertApi.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="Properties\AssemblyInfo.cs" />
-    <None Remove="App.config" />
-    <None Remove="packages.config" />
-  </ItemGroup>
-
 </Project>

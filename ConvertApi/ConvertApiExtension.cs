@@ -50,17 +50,17 @@ namespace ConvertApiDotNet
             return await response.Files.SaveFilesAsync(outputDirectory);
         }
 
-        public static async Task<Stream> FileStreamAsync(this ConvertApiFiles processedFile)
+        public static async Task<Stream> FileStreamAsync(this ConvertApiFile processedFile)
         {
             return await AsStreamAsync(processedFile.Url);
         }
 
-        public static async Task<FileInfo> SaveFileAsync(this ConvertApiFiles processedFile, string fileName)
+        public static async Task<FileInfo> SaveFileAsync(this ConvertApiFile processedFile, string fileName)
         {
             return await SaveFileAsync(processedFile.Url, fileName);
         }
 
-        public static async Task<List<FileInfo>> SaveFilesAsync(this IEnumerable<ConvertApiFiles> processedFile, string outputDirectory)
+        public static async Task<List<FileInfo>> SaveFilesAsync(this IEnumerable<ConvertApiFile> processedFile, string outputDirectory)
         {
             var list = new List<FileInfo>();
             foreach (var file in processedFile)
@@ -76,7 +76,7 @@ namespace ConvertApiDotNet
         /// </summary>
         /// <param name="processedFile">Files to delete.</param>
         /// <returns>Returns deleted files count.</returns>
-        public static async Task<int> DeleteFilesAsync(this IEnumerable<ConvertApiFiles> processedFile)
+        public static async Task<int> DeleteFilesAsync(this IEnumerable<ConvertApiFile> processedFile)
         {
             var httpClient = ConvertApi.GetClient().Client;
             var count = 0;

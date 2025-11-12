@@ -88,22 +88,26 @@ namespace ConvertApiDotNet
         }
 
         /// <summary>
-        /// Convert local file or pass File ID.
+        /// Convert local file.
         /// </summary>
-        /// <param name="path">Full path to local file or File ID.</param>
+        /// <param name="path">Path to a local file.</param>
         public ConvertApiFileParam(string path) : this("file", path)
         {
         }
 
         public ConvertApiFileParam(string name, string path) : base(name)
         {
-            //If file then load as stream if not then assume that it is file id
-            if (File.Exists(path))
-            {
-                Tasks = Upload(new FileInfo(path));
-            }
-            else
-                Value = new[] { path };
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException(
+                    "Path must be a non-empty path to an existing local file. To use a FileId, pass new ConvertApiParam(\"FileId\", fileId).",
+                    nameof(path));
+
+            if (!File.Exists(path))
+                throw new FileNotFoundException(
+                    $"File not found at path '{path}'. To use a FileId, pass new ConvertApiParam(\"FileId\", fileId).",
+                    path);
+
+            Tasks = Upload(new FileInfo(path));
         }
 
         /// <summary>

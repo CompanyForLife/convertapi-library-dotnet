@@ -51,6 +51,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HandleRetry", "Examples\Han
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConvertPdfToPdfA", "Examples\ConvertPdfToPdfA\ConvertPdfToPdfA.csproj", "{A1234567-89AB-4CDE-BCDE-0123456789AB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UploadOnceReuseTwice", "Examples\UploadOnceReuseTwice\UploadOnceReuseTwice.csproj", "{BDF6CFA4-56C1-4F23-9D65-5D0B7A5C2E0A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -129,6 +131,10 @@ Global
 		{A1234567-89AB-4CDE-BCDE-0123456789AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1234567-89AB-4CDE-BCDE-0123456789AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1234567-89AB-4CDE-BCDE-0123456789AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDF6CFA4-56C1-4F23-9D65-5D0B7A5C2E0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDF6CFA4-56C1-4F23-9D65-5D0B7A5C2E0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDF6CFA4-56C1-4F23-9D65-5D0B7A5C2E0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDF6CFA4-56C1-4F23-9D65-5D0B7A5C2E0A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -152,6 +158,7 @@ Global
 		{E3293557-56B5-466C-B6F4-1B111C0434B3} = {139F9822-4A90-475F-BAA5-F0471A85461B}
 		{196EC741-E034-436D-862C-FE532C4E4D10} = {139F9822-4A90-475F-BAA5-F0471A85461B}
 		{A1234567-89AB-4CDE-BCDE-0123456789AB} = {139F9822-4A90-475F-BAA5-F0471A85461B}
+		{BDF6CFA4-56C1-4F23-9D65-5D0B7A5C2E0A} = {139F9822-4A90-475F-BAA5-F0471A85461B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {337A0F6F-40A9-4993-BF66-05E4E374871F}

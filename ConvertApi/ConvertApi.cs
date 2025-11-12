@@ -73,6 +73,7 @@ namespace ConvertApiDotNet
             var validParameters = parameters.Where(n => !ignoredParameters.Contains(n.Name, StringComparer.OrdinalIgnoreCase)).ToList();
 
             var dicList = new ParamDictionary();
+            var uploadedInputs = new List<ConvertApiFile>();
             foreach (var parameter in validParameters)
             {
                 if (parameter is ConvertApiParam)
@@ -88,12 +89,30 @@ namespace ConvertApiDotNet
                     if (convertApiUpload != null)
                     {
                         dicList.Add(parameter.Name, convertApiUpload);
+                        uploadedInputs.Add(convertApiUpload);
                     }
                     else
                     {
                         foreach (var value in (parameter as ConvertApiFileParam).GetValues())
                         {
                             dicList.Add(parameter.Name, value);
+
+                            // Track server-stored files referenced by URL so they can be deleted later
+                            if (Uri.TryCreate(value, UriKind.Absolute, out var refUri))
+                            {
+                                try
+                                {
+                                    var apiHost = new Uri(ApiBaseUri).Host;
+                                    if (string.Equals(refUri.Host, apiHost, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        uploadedInputs.Add(new ConvertApiFile { Url = refUri });
+                                    }
+                                }
+                                catch
+                                {
+                                    // ignore malformed ApiBaseUri or any unexpected issues
+                                }
+                            }
                         }
                     }
                 }
@@ -140,7 +159,13 @@ namespace ConvertApiDotNet
             if (response.StatusCode != HttpStatusCode.OK)
                 throw new ConvertApiException(response.StatusCode,
                     $"Conversion from {fromFormat} to {toFormat} error. {response.ReasonPhrase}", result);
-            return JsonConvert.DeserializeObject<ConvertApiResponse>(result);
+            var apiResponse = JsonConvert.DeserializeObject<ConvertApiResponse>(result);
+            if (apiResponse != null)
+            {
+                // Attach uploaded input files so DeleteFilesAsync(response) can remove them later
+                apiResponse.UploadedInputFiles = uploadedInputs;
+            }
+            return apiResponse;
         }
 
         /// <summary>

@@ -23,21 +23,31 @@ namespace UploadOnceReuseTwice
                 var convertApi = new ConvertApi("api_token");
 
                 // Use the sample DOCX that ships with this repository
-                const string sourceFile = @"..\..\..\TestFiles\test.docx";
+                // Resolve the path relative to the compiled output folder to make it robust
+                // BaseDirectory typically is: Examples\UploadOnceReuseTwice\bin\{Config}\{TFM}\
+                var examplesDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+                var sourceFile = Path.Combine(examplesDir, "TestFiles", "test.docx");
+
+                if (!File.Exists(sourceFile))
+                {
+                    throw new FileNotFoundException(
+                        $"Sample file not found at '{sourceFile}'. " +
+                        "Ensure 'Examples/TestFiles/test.docx' exists or update the path accordingly.");
+                }
 
                 // Upload once and get back the uploaded file info (with FileId)
                 var uploaded = await (new ConvertApiFileParam(sourceFile)).GetValueAsync();
 
                 // 1) Convert DOCX to PDF reusing the same uploaded FileId
                 var toPdf = await convertApi.ConvertAsync("docx", "pdf",
-                    new ConvertApiParam("FileId", uploaded.FileId));
+                    new ConvertApiParam("File", uploaded.FileId));
                 var pdfFile = toPdf.Files.First();
                 var pdfSaved = await pdfFile.SaveFileAsync(Path.Combine(Path.GetTempPath(), pdfFile.FileName));
                 Console.WriteLine("The PDF saved to " + pdfSaved);
 
                 // 2) Convert DOCX to PNG reusing the same uploaded FileId (no second upload)
                 var toPng = await convertApi.ConvertAsync("docx", "png",
-                    new ConvertApiParam("FileId", uploaded.FileId));
+                    new ConvertApiParam("File", uploaded.FileId));
                 foreach (var processed in toPng.Files)
                 {
                     var saved = await processed.SaveFileAsync(Path.Combine(Path.GetTempPath(), processed.FileName));

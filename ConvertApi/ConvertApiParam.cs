@@ -208,9 +208,19 @@ namespace ConvertApiDotNet
             return JsonConvert.DeserializeObject<ConvertApiFile>(result);
         }
 
-        public async Task<ConvertApiFile> GetValueAsync()
+        /// <summary>
+        /// Gets the uploaded file information if this instance initiated an upload.
+        /// Returns null when this parameter was constructed from existing values (e.g., URL or response).
+        /// </summary>
+        public async Task<ConvertApiFile> GetUploadedFileAsync()
         {
             return Tasks == null ? null : await Tasks;
+        }
+
+        [Obsolete("Use GetUploadedFileAsync() instead.")]
+        public async Task<ConvertApiFile> GetValueAsync()
+        {
+            return await GetUploadedFileAsync();
         }
     }
 }

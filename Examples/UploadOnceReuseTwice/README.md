@@ -10,8 +10,8 @@ Conversions (single upload reused)
 - DOCX to PNG
 
 How it works
-- Program.cs explicitly uploads once by calling `GetValueAsync()` on `new ConvertApiFileParam(sourceFile)` to obtain a `FileId`.
-- The same `FileId` is passed to `ConvertAsync` twice via `new ConvertApiParam("FileId", uploaded.FileId)`, so the file is not re-uploaded.
+- Program.cs explicitly uploads once by calling `GetUploadedFileAsync()` on `new ConvertApiFileParam(sourceFile)` to obtain a `FileId`.
+- The same `FileId` is passed to `ConvertAsync` twice via `new ConvertApiParam("File", uploaded.FileId)`, so the file is not re-uploaded.
 
 Run steps
 1) Open ConvertApi.sln.

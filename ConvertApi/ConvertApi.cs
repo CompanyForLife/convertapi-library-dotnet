@@ -80,7 +80,7 @@ namespace ConvertApiDotNet
                 }
                 else if (parameter is ConvertApiFileParam)
                 {
-                    var convertApiUpload = await (parameter as ConvertApiFileParam).GetValueAsync();
+                    var convertApiUpload = await (parameter as ConvertApiFileParam).GetUploadedFileAsync();
                     if (convertApiUpload != null)
                     {
                         dicList.Add(parameter.Name, convertApiUpload);

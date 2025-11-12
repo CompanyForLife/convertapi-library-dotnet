@@ -36,7 +36,7 @@ namespace UploadOnceReuseTwice
                 }
 
                 // Upload once and get back the uploaded file info (with FileId)
-                var uploaded = await (new ConvertApiFileParam(sourceFile)).GetValueAsync();
+                var uploaded = await (new ConvertApiFileParam(sourceFile)).GetUploadedFileAsync();
 
                 // 1) Convert DOCX to PDF reusing the same uploaded FileId
                 var toPdf = await convertApi.ConvertAsync("docx", "pdf",

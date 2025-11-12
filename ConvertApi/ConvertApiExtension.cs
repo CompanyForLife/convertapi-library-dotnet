@@ -34,7 +34,7 @@ namespace ConvertApiDotNet
             using (var readFile = await AsStreamAsync(url))
             {
                 using (var fileStream = fileInfo.OpenWrite())
-                    readFile.CopyTo(fileStream);
+                    await readFile.CopyToAsync(fileStream);
             }
 
             return fileInfo;

@@ -10,9 +10,7 @@ using ConvertApiDotNet.Exceptions;
 using ConvertApiDotNet.Interface;
 using ConvertApiDotNet.Model;
 using Newtonsoft.Json;
-using Microsoft.OpenApi.Readers;
-using Microsoft.OpenApi.Any;
-using Microsoft.OpenApi.Interfaces;
+using Microsoft.OpenApi;
 
 namespace ConvertApiDotNet
 {
@@ -25,7 +23,6 @@ namespace ConvertApiDotNet
         public ConvertApi()
         {
         }
-
 
         /// <summary>
         /// Initializes a new instance of the ConvertApi class.
@@ -64,28 +61,30 @@ namespace ConvertApiDotNet
         {
             var content = new MultipartFormDataContent
             {
-                { new StringContent("true"), "StoreFile" }                
+                { new StringContent("true"), "StoreFile" }
             };
 
             var ignoredParameters = new[] { "StoreFile", "Async", "JobId" };
 
-
-            var validParameters = parameters.Where(n => !ignoredParameters.Contains(n.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+            var validParameters = parameters
+                .Where(n => !ignoredParameters.Contains(n.Name, StringComparer.OrdinalIgnoreCase))
+                .ToList();
 
             var dicList = new ParamDictionary();
             var uploadedInputs = new List<ConvertApiFile>();
+
             foreach (var parameter in validParameters)
             {
-                if (parameter is ConvertApiParam)
+                if (parameter is ConvertApiParam valueParam)
                 {
-                    foreach (var value in (parameter as ConvertApiParam).GetValues())
+                    foreach (var value in valueParam.GetValues())
                     {
                         dicList.Add(parameter.Name, value);
                     }
                 }
-                else if (parameter is ConvertApiFileParam)
+                else if (parameter is ConvertApiFileParam fileParam)
                 {
-                    var convertApiUpload = await (parameter as ConvertApiFileParam).GetUploadedFileAsync();
+                    var convertApiUpload = await fileParam.GetUploadedFileAsync();
                     if (convertApiUpload != null)
                     {
                         dicList.Add(parameter.Name, convertApiUpload);
@@ -93,7 +92,7 @@ namespace ConvertApiDotNet
                     }
                     else
                     {
-                        foreach (var value in (parameter as ConvertApiFileParam).GetValues())
+                        foreach (var value in fileParam.GetValues())
                         {
                             dicList.Add(parameter.Name, value);
 
@@ -118,7 +117,6 @@ namespace ConvertApiDotNet
                 }
             }
 
-
             foreach (var s in dicList.Get())
             {
                 switch (s.Value)
@@ -126,10 +124,11 @@ namespace ConvertApiDotNet
                     case string value:
                         content.Add(new StringContent(value), s.Key);
                         break;
+
                     case ConvertApiFile upload:
                         content.Add(new StringContent(upload.FileId), s.Key);
 
-                        //Set FROM format if it is not set
+                        // Set FROM format if it is not set
                         if (string.Equals(fromFormat.ToLower(), "*", StringComparison.OrdinalIgnoreCase))
                         {
                             fromFormat = upload.FileExt;
@@ -138,33 +137,35 @@ namespace ConvertApiDotNet
                         break;
                 }
             }
-            
+
             var url = new UriBuilder(ApiBaseUri)
             {
                 Path = $"convert/{fromFormat}/to/{toFormat}",
-                //We give Token authentication priority if token provided and then Secret
-                /*Query = !string.IsNullOrEmpty(Token) ? $"token={Token}&apikey={ApiKey}" : $"secret={AuthCredentials}"*/
             };
 
             TimeSpan? requestTimeOut = null;
             var timeoutParameter = dicList.Find("timeout");
             if (!string.IsNullOrEmpty(timeoutParameter) && int.TryParse(timeoutParameter, out var parsedTimeOut))
             {
-                requestTimeOut = TimeSpan.FromSeconds(parsedTimeOut).Add(ConvertApiConstants.ConversionTimeoutDelta);
+                requestTimeOut = TimeSpan.FromSeconds(parsedTimeOut)
+                    .Add(ConvertApiConstants.ConversionTimeoutDelta);
             }
-
 
             var response = await GetClient().PostAsync(url.Uri, requestTimeOut, content, ApiToken);
             var result = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
-                throw new ConvertApiException(response.StatusCode,
-                    $"Conversion from {fromFormat} to {toFormat} error. {response.ReasonPhrase}", result);
+                throw new ConvertApiException(
+                    response.StatusCode,
+                    $"Conversion from {fromFormat} to {toFormat} error. {response.ReasonPhrase}",
+                    result);
+
             var apiResponse = JsonConvert.DeserializeObject<ConvertApiResponse>(result);
             if (apiResponse != null)
             {
                 // Attach uploaded input files so DeleteFilesAsync(response) can remove them later
                 apiResponse.UploadedInputFiles = uploadedInputs;
             }
+
             return apiResponse;
         }
 
@@ -184,7 +185,9 @@ namespace ConvertApiDotNet
             var endpoint = $"{src.Trim('/')}/to/{dst.Trim('/')}".Trim('/');
 
             // Try endpoint-specific OpenAPI first, then fall back to root.
-            var doc = await TryFetchOpenApiAsync($"info/openapi/{endpoint}", ct) ?? await TryFetchOpenApiAsync("info/openapi", ct);
+            var doc = await TryFetchOpenApiAsync($"info/openapi/{endpoint}", ct)
+                      ?? await TryFetchOpenApiAsync("info/openapi", ct);
+
             if (doc == null)
                 throw new InvalidOperationException("OpenAPI document could not be retrieved.");
 
@@ -192,30 +195,44 @@ namespace ConvertApiDotNet
             if (!doc.Paths.TryGetValue(pathKey, out var pathItem) || pathItem == null)
                 throw new InvalidOperationException($"Converter path '{pathKey}' not found in OpenAPI document.");
 
-            // Use POST operation
-            if (pathItem.Operations == null || !pathItem.Operations.TryGetValue(Microsoft.OpenApi.Models.OperationType.Post, out var postOp))
+            // Find POST operation without depending on OperationType enum
+            var postOp = pathItem.Operations?
+                .FirstOrDefault(kvp =>
+                    kvp.Key != null &&
+                    string.Equals(kvp.Key.ToString(), "Post", StringComparison.OrdinalIgnoreCase))
+                .Value;
+
+            if (postOp == null)
                 throw new InvalidOperationException("POST operation not defined for the converter in OpenAPI.");
 
             var model = new Converter
             {
-                Title = string.IsNullOrWhiteSpace(pathItem.Summary) ? (postOp.Summary ?? pathKey) : pathItem.Summary,
-                Summary = string.IsNullOrWhiteSpace(pathItem.Description) ? postOp.Description : pathItem.Description,
+                Title = string.IsNullOrWhiteSpace(pathItem.Summary)
+                    ? (postOp.Summary ?? pathKey)
+                    : pathItem.Summary,
+                Summary = string.IsNullOrWhiteSpace(pathItem.Description)
+                    ? postOp.Description
+                    : pathItem.Description,
                 AcceptsFormats = string.Empty,
                 AcceptsMultiple = false,
-                Parameters = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
+                Parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             };
 
             // Collect accept formats from x-ca-source-formats extension (operation has priority)
-            var accept = GetExtensionString(postOp.Extensions, "x-ca-source-formats") ?? GetExtensionString(pathItem.Extensions, "x-ca-source-formats");
+            var accept = GetExtensionString(postOp.Extensions, "x-ca-source-formats")
+                         ?? GetExtensionString(pathItem.Extensions, "x-ca-source-formats");
+
             if (!string.IsNullOrWhiteSpace(accept))
             {
-                var list = accept.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                 .Select(v => (v ?? string.Empty).Trim())
-                                 .Where(v => !string.IsNullOrWhiteSpace(v))
-                                 .Select(v => v.StartsWith(".") ? v : "." + v)
-                                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                                 .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
-                                 .ToList();
+                var list = accept
+                    .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(v => (v ?? string.Empty).Trim())
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Select(v => v.StartsWith(".") ? v : "." + v)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
                 model.AcceptsFormats = string.Join(",", list);
             }
 
@@ -236,7 +253,10 @@ namespace ConvertApiDotNet
 
                             // Detect files support
                             var isBinary = string.Equals(s.Format, "binary", StringComparison.OrdinalIgnoreCase);
-                            var isFilesArray = string.Equals(s.Type, "array", StringComparison.OrdinalIgnoreCase) && s.Items != null && string.Equals(s.Items.Format, "binary", StringComparison.OrdinalIgnoreCase);
+                            var isFilesArray = s.Type == JsonSchemaType.Array
+                                               && s.Items != null
+                                               && string.Equals(s.Items.Format, "binary", StringComparison.OrdinalIgnoreCase);
+
                             if (isFilesArray && name.Equals("files", StringComparison.OrdinalIgnoreCase))
                                 model.AcceptsMultiple = true;
 
@@ -253,13 +273,15 @@ namespace ConvertApiDotNet
                                 var propAccept = GetExtensionString(s.Extensions, "x-ca-source-formats");
                                 if (!string.IsNullOrWhiteSpace(propAccept))
                                 {
-                                    var list2 = propAccept.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                                          .Select(v => (v ?? string.Empty).Trim())
-                                                          .Where(v => !string.IsNullOrWhiteSpace(v))
-                                                          .Select(v => v.StartsWith(".") ? v : "." + v)
-                                                          .Distinct(StringComparer.OrdinalIgnoreCase)
-                                                          .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
-                                                          .ToList();
+                                    var list2 = propAccept
+                                        .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                        .Select(v => (v ?? string.Empty).Trim())
+                                        .Where(v => !string.IsNullOrWhiteSpace(v))
+                                        .Select(v => v.StartsWith(".") ? v : "." + v)
+                                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                                        .OrderBy(v => v, StringComparer.OrdinalIgnoreCase)
+                                        .ToList();
+
                                     model.AcceptsFormats = string.Join(",", list2);
                                 }
                             }
@@ -279,24 +301,24 @@ namespace ConvertApiDotNet
             return model;
         }
 
-        private async Task<Microsoft.OpenApi.Models.OpenApiDocument> TryFetchOpenApiAsync(string path, System.Threading.CancellationToken ct)
+        private async Task<OpenApiDocument> TryFetchOpenApiAsync(string path, System.Threading.CancellationToken ct)
         {
             var url = new UriBuilder(ApiBaseUri)
             {
                 Path = path
             };
+
             try
             {
                 var response = await GetClient().GetAsync(url.Uri, ConvertApiConstants.DownloadTimeout, ApiToken);
                 if (response.StatusCode != HttpStatusCode.OK)
                     return null;
+
                 var json = await response.Content.ReadAsStringAsync();
-                using (var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)))
-                {
-                    var reader = new OpenApiStreamReader();
-                    var doc = reader.Read(ms, out var diagnostic);
-                    return doc;
-                }
+
+                // Use new OpenAPI.NET Parse API (3.x) instead of OpenApiStreamReader
+                var readResult = OpenApiDocument.Parse(json);
+                return readResult.Document;
             }
             catch
             {
@@ -304,21 +326,55 @@ namespace ConvertApiDotNet
             }
         }
 
-        private static string GetExtensionString(System.Collections.Generic.IDictionary<string, IOpenApiExtension> extensions, string key)
+        /// <summary>
+        /// Safely read an extension value as a comma-separated string, without depending
+        /// on specific OpenAPI.NET extension types or namespaces.
+        /// </summary>
+        private static string GetExtensionString<T>(IDictionary<string, T> extensions, string key)
         {
             if (extensions == null) return null;
-            if (!extensions.TryGetValue(key, out var ext) || ext == null) return null;
-            if (ext is OpenApiString s) return s.Value;
-            if (ext is Microsoft.OpenApi.Any.OpenApiArray arr)
+            T ext;
+            if (!extensions.TryGetValue(key, out ext) || ext == null) return null;
+
+            // Try a Value property first (OpenApiString-style)
+            var valueProp = ext.GetType().GetProperty("Value");
+            if (valueProp != null && valueProp.PropertyType == typeof(string))
             {
-                try
-                {
-                    var joined = string.Join(",", arr.Select(a => (a as OpenApiString)?.Value).Where(v => !string.IsNullOrWhiteSpace(v)));
-                    return joined;
-                }
-                catch { return null; }
+                return (string)valueProp.GetValue(ext);
             }
-            return null;
+
+            // If it looks like a collection (OpenApiArray-style), join string-ish values
+            var enumerable = ext as System.Collections.IEnumerable;
+            if (enumerable != null && !(ext is string))
+            {
+                var items = new List<string>();
+
+                foreach (var item in enumerable)
+                {
+                    if (item == null) continue;
+
+                    var itemValueProp = item.GetType().GetProperty("Value");
+                    string v = null;
+
+                    if (itemValueProp != null && itemValueProp.PropertyType == typeof(string))
+                    {
+                        v = (string)itemValueProp.GetValue(item);
+                    }
+                    else
+                    {
+                        v = item.ToString();
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(v))
+                        items.Add(v);
+                }
+
+                if (items.Count > 0)
+                    return string.Join(",", items);
+            }
+
+            // Fallback – last resort
+            return ext.ToString();
         }
 
         /// <summary>
@@ -335,7 +391,11 @@ namespace ConvertApiDotNet
             var response = await GetClient().GetAsync(url.Uri, ConvertApiConstants.DownloadTimeout, ApiToken);
             var result = await response.Content.ReadAsStringAsync();
             if (response.StatusCode != HttpStatusCode.OK)
-                throw new ConvertApiException(response.StatusCode, $"Retrieve user information failed. {response.ReasonPhrase}", result);
+                throw new ConvertApiException(
+                    response.StatusCode,
+                    $"Retrieve user information failed. {response.ReasonPhrase}",
+                    result);
+
             return JsonConvert.DeserializeObject<ConvertApiUser>(result);
         }
     }
